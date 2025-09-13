@@ -41,7 +41,18 @@ function Router() {
   // Real authentication using useAuth hook
   const { user, isLoading, isAuthenticated } = useAuth();
   
-  // Show loading while authentication is being checked - MUST come before any other hooks
+  // ALL hooks must be called before any early returns
+  const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup">("home");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  // Auto-redirect authenticated users without gamertag to profile setup
+  useEffect(() => {
+    if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
+      setCurrentPage("profile-setup");
+    }
+  }, [isAuthenticated, user, currentPage]);
+
+  // Show loading while authentication is being checked - MUST come after ALL hooks
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -52,16 +63,6 @@ function Router() {
       </div>
     );
   }
-
-  const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup">("home");
-  const [showCreateForm, setShowCreateForm] = useState(false);
-
-  // Auto-redirect authenticated users without gamertag to profile setup
-  useEffect(() => {
-    if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
-      setCurrentPage("profile-setup");
-    }
-  }, [isAuthenticated, user, currentPage]);
 
   const handleLogin = () => {
     // Redirect to Replit Auth endpoint
