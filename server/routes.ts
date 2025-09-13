@@ -59,9 +59,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status } = req.body;
+      const userId = req.user.claims.sub;
       
       if (!['waiting', 'connected', 'declined'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      // First check if the match request exists and verify ownership
+      const existingRequest = await storage.getMatchRequests();
+      const requestToUpdate = existingRequest.find(r => r.id === id);
+      
+      if (!requestToUpdate) {
+        return res.status(404).json({ message: "Match request not found" });
+      }
+      
+      if (requestToUpdate.userId !== userId) {
+        return res.status(403).json({ message: "You can only update your own match requests" });
       }
       
       const updatedRequest = await storage.updateMatchRequestStatus(id, status);
@@ -75,6 +88,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/match-requests/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // First check if the match request exists and verify ownership
+      const existingRequest = await storage.getMatchRequests();
+      const requestToDelete = existingRequest.find(r => r.id === id);
+      
+      if (!requestToDelete) {
+        return res.status(404).json({ message: "Match request not found" });
+      }
+      
+      if (requestToDelete.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own match requests" });
+      }
+      
       await storage.deleteMatchRequest(id);
       res.status(204).send();
     } catch (error) {
@@ -88,6 +115,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const requesterId = req.user.claims.sub;
       const { requestId, accepterId } = req.body;
+      
+      // Validation
+      if (!requestId || !accepterId) {
+        return res.status(400).json({ message: "requestId and accepterId are required" });
+      }
+      
+      // Prevent self-connections
+      if (requesterId === accepterId) {
+        return res.status(400).json({ message: "You cannot connect to your own match request" });
+      }
+      
+      // Verify the match request exists
+      const matchRequests = await storage.getMatchRequests();
+      const matchRequest = matchRequests.find(r => r.id === requestId);
+      
+      if (!matchRequest) {
+        return res.status(404).json({ message: "Match request not found" });
+      }
+      
+      // Verify accepterId matches the owner of the match request
+      if (matchRequest.userId !== accepterId) {
+        return res.status(400).json({ message: "accepterId must be the owner of the match request" });
+      }
+      
+      // Check for existing connection to prevent duplicates
+      const existingConnections = await storage.getUserConnections(requesterId);
+      const duplicateConnection = existingConnections.find(c => 
+        c.requestId === requestId && c.accepterId === accepterId
+      );
+      
+      if (duplicateConnection) {
+        return res.status(400).json({ message: "Connection already exists for this match request" });
+      }
       
       const connection = await storage.createMatchConnection({
         requestId,
@@ -106,9 +166,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status } = req.body;
+      const userId = req.user.claims.sub;
       
       if (!['pending', 'accepted', 'declined'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      // First check if the connection exists and verify user is a participant
+      const userConnections = await storage.getUserConnections(userId);
+      const connectionToUpdate = userConnections.find(c => c.id === id);
+      
+      if (!connectionToUpdate) {
+        return res.status(404).json({ message: "Match connection not found or you are not authorized to modify it" });
       }
       
       const updatedConnection = await storage.updateMatchConnectionStatus(id, status);
