@@ -9,6 +9,8 @@ import {
   type MatchConnection,
   type InsertMatchConnection,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, or, ilike, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 // Gaming-focused storage interface with real-time capabilities
@@ -30,116 +32,137 @@ export interface IStorage {
   getUserConnections(userId: string): Promise<MatchConnection[]>;
 }
 
-// In-memory storage for development
-export class MemStorage implements IStorage {
-  private users: Map<string, User> = new Map();
-  private matchRequests: Map<string, MatchRequest> = new Map();
-  private matchConnections: Map<string, MatchConnection> = new Map();
-
+// Database storage implementation using PostgreSQL
+export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const existingUser = this.users.get(userData.id!);
-    const user: User = {
-      ...existingUser,
-      ...userData,
-      id: userData.id || randomUUID(),
-      createdAt: existingUser?.createdAt || new Date(),
-      updatedAt: new Date(),
-    };
-    this.users.set(user.id, user);
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
     return user;
   }
 
   async updateUserProfile(id: string, profile: Partial<User>): Promise<User> {
-    const existingUser = this.users.get(id);
-    if (!existingUser) throw new Error('User not found');
+    const [updatedUser] = await db
+      .update(users)
+      .set({ ...profile, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
     
-    const updatedUser: User = {
-      ...existingUser,
-      ...profile,
-      id,
-      updatedAt: new Date(),
-    };
-    this.users.set(id, updatedUser);
+    if (!updatedUser) {
+      throw new Error('User not found');
+    }
+    
     return updatedUser;
   }
 
   // Match request operations
   async getMatchRequests(filters?: { game?: string; mode?: string; region?: string }): Promise<MatchRequest[]> {
-    let requests = Array.from(this.matchRequests.values());
+    const conditions = [];
     
     if (filters?.game) {
-      requests = requests.filter(r => r.gameName.toLowerCase().includes(filters.game!.toLowerCase()));
+      conditions.push(ilike(matchRequests.gameName, `%${filters.game}%`));
     }
     if (filters?.mode) {
-      requests = requests.filter(r => r.gameMode === filters.mode);
+      conditions.push(eq(matchRequests.gameMode, filters.mode));
     }
     if (filters?.region) {
-      requests = requests.filter(r => r.region === filters.region);
+      conditions.push(eq(matchRequests.region, filters.region));
     }
     
-    return requests.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    if (conditions.length > 0) {
+      const requests = await db
+        .select()
+        .from(matchRequests)
+        .where(and(...conditions))
+        .orderBy(desc(matchRequests.createdAt));
+      return requests;
+    } else {
+      const requests = await db
+        .select()
+        .from(matchRequests)
+        .orderBy(desc(matchRequests.createdAt));
+      return requests;
+    }
   }
 
   async createMatchRequest(requestData: InsertMatchRequest): Promise<MatchRequest> {
-    const request: MatchRequest = {
-      ...requestData,
-      id: randomUUID(),
-      status: 'waiting',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.matchRequests.set(request.id, request);
+    const [request] = await db
+      .insert(matchRequests)
+      .values(requestData)
+      .returning();
     return request;
   }
 
   async updateMatchRequestStatus(id: string, status: string): Promise<MatchRequest> {
-    const request = this.matchRequests.get(id);
-    if (!request) throw new Error('Match request not found');
+    const [updatedRequest] = await db
+      .update(matchRequests)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(matchRequests.id, id))
+      .returning();
     
-    const updatedRequest = { ...request, status, updatedAt: new Date() };
-    this.matchRequests.set(id, updatedRequest);
+    if (!updatedRequest) {
+      throw new Error('Match request not found');
+    }
+    
     return updatedRequest;
   }
 
   async deleteMatchRequest(id: string): Promise<void> {
-    this.matchRequests.delete(id);
+    await db.delete(matchRequests).where(eq(matchRequests.id, id));
   }
 
   // Match connection operations
   async createMatchConnection(connectionData: InsertMatchConnection): Promise<MatchConnection> {
-    const connection: MatchConnection = {
-      ...connectionData,
-      id: randomUUID(),
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.matchConnections.set(connection.id, connection);
+    const [connection] = await db
+      .insert(matchConnections)
+      .values(connectionData)
+      .returning();
     return connection;
   }
 
   async updateMatchConnectionStatus(id: string, status: string): Promise<MatchConnection> {
-    const connection = this.matchConnections.get(id);
-    if (!connection) throw new Error('Match connection not found');
+    const [updatedConnection] = await db
+      .update(matchConnections)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(matchConnections.id, id))
+      .returning();
     
-    const updatedConnection = { ...connection, status, updatedAt: new Date() };
-    this.matchConnections.set(id, updatedConnection);
+    if (!updatedConnection) {
+      throw new Error('Match connection not found');
+    }
+    
     return updatedConnection;
   }
 
   async getUserConnections(userId: string): Promise<MatchConnection[]> {
-    return Array.from(this.matchConnections.values())
-      .filter(c => c.requesterId === userId || c.accepterId === userId)
-      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    const connections = await db
+      .select()
+      .from(matchConnections)
+      .where(or(
+        eq(matchConnections.requesterId, userId),
+        eq(matchConnections.accepterId, userId)
+      ))
+      .orderBy(desc(matchConnections.createdAt));
+    
+    return connections;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
 
 // Seed some mock data for development
 // TODO: Remove mock data when implementing real backend
