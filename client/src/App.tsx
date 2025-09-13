@@ -44,7 +44,6 @@ function Router() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Auto-redirect authenticated users without gamertag to profile setup
-  // MUST be declared before any early returns to maintain hook order
   useEffect(() => {
     if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
       setCurrentPage("profile-setup");
@@ -94,7 +93,7 @@ function Router() {
     }
   };
 
-  // Show loading while authentication is being checked
+  // Show loading while authentication is being checked - moved after all hooks
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

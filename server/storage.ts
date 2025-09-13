@@ -24,7 +24,7 @@ export interface IStorage {
   // Match request operations
   getMatchRequests(filters?: { game?: string; mode?: string; region?: string }): Promise<MatchRequestWithUser[]>;
   createMatchRequest(request: InsertMatchRequest): Promise<MatchRequest>;
-  updateMatchRequestStatus(id: string, status: string): Promise<MatchRequest>;
+  updateMatchRequestStatus(id: string, status: "waiting" | "connected" | "declined"): Promise<MatchRequest>;
   deleteMatchRequest(id: string): Promise<void>;
   
   // Match connection operations
@@ -123,7 +123,7 @@ export class DatabaseStorage implements IStorage {
     return request;
   }
 
-  async updateMatchRequestStatus(id: string, status: string): Promise<MatchRequest> {
+  async updateMatchRequestStatus(id: string, status: "waiting" | "connected" | "declined"): Promise<MatchRequest> {
     const [updatedRequest] = await db
       .update(matchRequests)
       .set({ status, updatedAt: new Date() })

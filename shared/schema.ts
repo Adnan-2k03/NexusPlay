@@ -7,9 +7,13 @@ import {
   varchar,
   text,
   integer,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Enums
+export const matchRequestStatusEnum = pgEnum("match_request_status", ["waiting", "connected", "declined"]);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -47,7 +51,7 @@ export const matchRequests = pgTable("match_requests", {
   gameMode: varchar("game_mode").notNull(), // 1v1, 2v2, 3v3, etc.
   tournamentName: varchar("tournament_name"),
   description: text("description").notNull(),
-  status: varchar("status").notNull().default("waiting"), // waiting, connected, declined
+  status: matchRequestStatusEnum("status").notNull().default("waiting"),
   region: varchar("region"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
