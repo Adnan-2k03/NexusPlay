@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, getSession } from "./replitAuth";
 import { insertMatchRequestSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -44,6 +45,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
       });
       
+      // Broadcast new match request to all users
+      (app as any).broadcast?.toAll({
+        type: 'match_request_created',
+        data: matchRequest,
+        message: `New ${matchRequest.gameName} ${matchRequest.gameMode} match request from ${matchRequest.userId}`
+      });
+      
       res.status(201).json(matchRequest);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -78,6 +86,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedRequest = await storage.updateMatchRequestStatus(id, status);
+      
+      // Broadcast match request status update
+      (app as any).broadcast?.toAll({
+        type: 'match_request_updated',
+        data: updatedRequest,
+        message: `Match request status updated to ${status}`
+      });
+      
       res.json(updatedRequest);
     } catch (error) {
       console.error("Error updating match request:", error);
@@ -103,6 +119,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.deleteMatchRequest(id);
+      
+      // Broadcast match request deletion to all users
+      (app as any).broadcast?.toAll({
+        type: 'match_request_deleted',
+        data: { id },
+        message: `Match request deleted`
+      });
+      
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting match request:", error);
@@ -155,6 +179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accepterId,
       });
       
+      // Broadcast match connection to both users
+      (app as any).broadcast?.toUsers([requesterId, accepterId], {
+        type: 'match_connection_created',
+        data: connection,
+        message: `New match connection created`
+      });
+      
       res.status(201).json(connection);
     } catch (error) {
       console.error("Error creating match connection:", error);
@@ -181,6 +212,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedConnection = await storage.updateMatchConnectionStatus(id, status);
+      
+      // Broadcast connection status update to participants
+      (app as any).broadcast?.toUsers([connectionToUpdate.requesterId, connectionToUpdate.accepterId], {
+        type: 'match_connection_updated',
+        data: updatedConnection,
+        message: `Match connection status updated to ${status}`
+      });
+      
       res.json(updatedConnection);
     } catch (error) {
       console.error("Error updating match connection:", error);
@@ -214,5 +253,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+
+  // Set up WebSocket server for real-time match updates
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    verifyClient: (info: { origin: string; req: any }) => {
+      // Validate Origin to prevent cross-site WebSocket hijacking
+      const origin = info.origin;
+      const host = info.req.headers.host;
+      
+      if (!origin || !host) {
+        console.log('WebSocket connection rejected: Missing origin or host');
+        return false;
+      }
+      
+      try {
+        // Extract hostname from origin using URL parsing for robustness
+        const originHost = new URL(origin).host;
+        
+        // Require exact host match to prevent cross-site hijacking
+        if (originHost === host) {
+          return true;
+        }
+        
+        console.log(`WebSocket connection rejected: Origin ${origin} (${originHost}) does not match host ${host}`);
+        return false;
+      } catch (error) {
+        console.log(`WebSocket connection rejected: Invalid origin URL ${origin}`);
+        return false;
+      }
+    }
+  });
+
+  // Store connected clients with their user info and heartbeat tracking
+  const connectedClients = new Map<string, { ws: WebSocket; userId?: string; lastPong?: number }>();
+  
+  // Heartbeat mechanism to detect and clean up stale connections
+  const heartbeatInterval = setInterval(() => {
+    const now = Date.now();
+    connectedClients.forEach(({ ws, lastPong }, clientId) => {
+      if (lastPong && now - lastPong > 40000) { // 40 second timeout
+        console.log(`Removing stale WebSocket connection: ${clientId}`);
+        ws.terminate();
+        connectedClients.delete(clientId);
+      } else {
+        // Send ping to check if connection is alive
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.ping();
+        }
+      }
+    });
+  }, 30000); // Check every 30 seconds
+
+  wss.on('connection', async (ws, req) => {
+    const clientId = Math.random().toString(36).substring(2, 15);
+    console.log(`WebSocket client connected: ${clientId}`);
+
+    // Extract and validate session from the request headers
+    let authenticatedUserId: string | undefined = undefined;
+    
+    try {
+      // Parse cookies from the WebSocket request to get session
+      const cookieHeader = req.headers.cookie;
+      if (cookieHeader) {
+        // Parse the session using the same session store as Express
+        const sessionParser = getSession();
+        
+        // Create a mock request/response object to use the session parser
+        const mockReq = { 
+          headers: { cookie: cookieHeader },
+          connection: req.socket 
+        } as any;
+        const mockRes = {} as any;
+
+        await new Promise<void>((resolve, reject) => {
+          sessionParser(mockReq, mockRes, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        // Check if user is authenticated through the session
+        if (mockReq.session?.passport?.user?.claims?.sub) {
+          authenticatedUserId = mockReq.session.passport.user.claims.sub;
+          connectedClients.set(clientId, { ws, userId: authenticatedUserId, lastPong: Date.now() });
+          
+          ws.send(JSON.stringify({
+            type: 'auth_success',
+            message: 'Authentication successful',
+            userId: authenticatedUserId
+          }));
+          
+          console.log(`WebSocket client ${clientId} authenticated as user ${authenticatedUserId}`);
+        } else {
+          // Not authenticated - still allow connection but mark as anonymous
+          connectedClients.set(clientId, { ws, lastPong: Date.now() });
+          
+          ws.send(JSON.stringify({
+            type: 'auth_failed',
+            message: 'Authentication required for personalized updates'
+          }));
+          
+          console.log(`WebSocket client ${clientId} connected as anonymous`);
+        }
+      } else {
+        // No cookies - anonymous connection
+        connectedClients.set(clientId, { ws, lastPong: Date.now() });
+        
+        ws.send(JSON.stringify({
+          type: 'auth_failed',
+          message: 'No session found - login required for personalized updates'
+        }));
+        
+        console.log(`WebSocket client ${clientId} connected as anonymous (no cookies)`);
+      }
+    } catch (error) {
+      console.error('Error authenticating WebSocket connection:', error);
+      connectedClients.set(clientId, { ws, lastPong: Date.now() });
+      
+      ws.send(JSON.stringify({
+        type: 'auth_failed',
+        message: 'Authentication error'
+      }));
+    }
+    
+    // Handle pong responses for heartbeat
+    ws.on('pong', () => {
+      const client = connectedClients.get(clientId);
+      if (client) {
+        client.lastPong = Date.now();
+      }
+    });
+
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log(`WebSocket message from ${clientId}:`, data);
+        
+        // Note: No longer accepting client-provided auth - security fix
+        if (data.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      connectedClients.delete(clientId);
+      console.log(`WebSocket client disconnected: ${clientId}`);
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      connectedClients.delete(clientId);
+    });
+
+    // Send welcome message
+    ws.send(JSON.stringify({
+      type: 'welcome',
+      message: 'Connected to GameMatch real-time updates'
+    }));
+  });
+
+  // Helper function to broadcast real-time updates
+  const broadcastToUsers = (userIds: string[], message: any) => {
+    connectedClients.forEach((client, clientId) => {
+      if (client.userId && userIds.includes(client.userId) && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(JSON.stringify(message));
+      }
+    });
+  };
+
+  // Helper function to broadcast to all authenticated users
+  const broadcastToAll = (message: any) => {
+    connectedClients.forEach((client, clientId) => {
+      if (client.userId && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(JSON.stringify(message));
+      }
+    });
+  };
+
+  // Store broadcast functions for use in API routes
+  (app as any).broadcast = {
+    toUsers: broadcastToUsers,
+    toAll: broadcastToAll
+  };
+
   return httpServer;
 }
