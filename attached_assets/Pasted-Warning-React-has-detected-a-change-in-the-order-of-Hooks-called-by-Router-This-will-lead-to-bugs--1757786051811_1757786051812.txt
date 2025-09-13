@@ -1,0 +1,37 @@
+Warning: React has detected a change in the order of Hooks called by Router. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useContext                 useContext
+2. useContext                 useContext
+3. useContext                 useContext
+4. useEffect                  useEffect
+5. useState                   useState
+6. useCallback                useCallback
+7. useSyncExternalStore       useSyncExternalStore
+8. useEffect                  useEffect
+9. useState                   useState
+10. useState                  useState
+11. undefined                 useEffect
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    at Router (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/App.tsx?v=nXX3yudxY0bOK2phMqbTL:49:48)
+    at Provider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BCLB22GG.js?v=039f1a3d:22:15)
+    at TooltipProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=039f1a3d:54:5)
+    at ThemeProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ThemeProvider.tsx:25:3)
+    at QueryClientProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=039f1a3d:2805:3)
+    at App
+Rendered more hooks than during the previous render.
+Rendered more hooks than during the previous render.
+The above error occurred in the <Router> component:
+
+    at Router (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/App.tsx?v=nXX3yudxY0bOK2phMqbTL:49:48)
+    at Provider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BCLB22GG.js?v=039f1a3d:22:15)
+    at TooltipProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=039f1a3d:54:5)
+    at ThemeProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ThemeProvider.tsx:25:3)
+    at QueryClientProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=039f1a3d:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+Rendered more hooks than during the previous render.

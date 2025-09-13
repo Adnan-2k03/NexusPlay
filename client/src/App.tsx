@@ -43,6 +43,14 @@ function Router() {
   const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup">("home");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  // Auto-redirect authenticated users without gamertag to profile setup
+  // MUST be declared before any early returns to maintain hook order
+  useEffect(() => {
+    if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
+      setCurrentPage("profile-setup");
+    }
+  }, [isAuthenticated, user, currentPage]);
+
   const handleLogin = () => {
     // Redirect to Replit Auth endpoint
     window.location.href = '/api/login';
@@ -97,13 +105,6 @@ function Router() {
       </div>
     );
   }
-
-  // Auto-redirect authenticated users without gamertag to profile setup
-  useEffect(() => {
-    if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
-      setCurrentPage("profile-setup");
-    }
-  }, [isAuthenticated, user, currentPage]);
 
   const renderMainContent = () => {
     if (showCreateForm) {
