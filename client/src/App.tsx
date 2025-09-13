@@ -15,13 +15,32 @@ import { GameNavigation } from "@/components/GameNavigation";
 import { MatchFeed } from "@/components/MatchFeed";
 import { CreateMatchForm } from "@/components/CreateMatchForm";
 import { UserProfile } from "@/components/UserProfile";
+import { ProfileSetup } from "@/components/ProfileSetup";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import NotFound from "@/pages/not-found";
+
+// Types
+import type { User } from "@shared/schema";
+
+// Utility function to convert database User (with nulls) to component-compatible user (with undefined)
+function mapUserForComponents(user: User) {
+  return {
+    id: user.id,
+    gamertag: user.gamertag || "",
+    firstName: user.firstName ?? undefined,
+    lastName: user.lastName ?? undefined,
+    profileImageUrl: user.profileImageUrl ?? undefined,
+    bio: user.bio ?? undefined,
+    location: user.location ?? undefined,
+    age: user.age ?? undefined,
+    preferredGames: user.preferredGames ?? undefined,
+  };
+}
 
 function Router() {
   // Real authentication using useAuth hook
   const { user, isLoading, isAuthenticated } = useAuth();
-  const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings">("home");
+  const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup">("home");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const handleLogin = () => {
@@ -60,6 +79,11 @@ function Router() {
     );
   }
 
+  // Auto-redirect authenticated users without gamertag to profile setup
+  if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
+    setCurrentPage("profile-setup");
+  }
+
   const renderMainContent = () => {
     if (showCreateForm) {
       return (
@@ -94,8 +118,7 @@ function Router() {
               </div>
               {user && user.gamertag && (
                 <UserProfile
-                  {...user}
-                  gamertag={user.gamertag}
+                  {...mapUserForComponents(user)}
                   isOwn={true}
                   onEdit={() => console.log("Edit profile triggered")}
                 />
@@ -105,7 +128,7 @@ function Router() {
                   <h3 className="font-semibold mb-2">Complete Your Profile</h3>
                   <p className="text-sm text-muted-foreground mb-4">You need to set up your gamertag and profile to use the matchmaking system.</p>
                   <button 
-                    onClick={() => console.log("Setup profile triggered")}
+                    onClick={() => setCurrentPage("profile-setup")}
                     className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
                     data-testid="button-setup-profile"
                   >
@@ -162,6 +185,21 @@ function Router() {
             </div>
           </div>
         );
+      case "profile-setup":
+        return (
+          <div className="md:ml-20 pt-16 md:pt-6 pb-16 md:pb-6 px-4">
+            <ProfileSetup
+              user={user}
+              onComplete={() => {
+                setCurrentPage("profile");
+                // Trigger a refresh of user data
+              }}
+              onCancel={() => {
+                setCurrentPage(user?.gamertag ? "profile" : "home");
+              }}
+            />
+          </div>
+        );
       default:
         return (
           <div className="md:ml-20 pt-16 md:pt-6 pb-16 md:pb-6 px-4">
@@ -192,7 +230,7 @@ function Router() {
                       setCurrentPage(page as any);
                       setShowCreateForm(false);
                     }}
-                    user={{ ...user, gamertag: user.gamertag }}
+                    user={mapUserForComponents(user)}
                     onLogout={handleLogout}
                     pendingMessages={3}
                   />
