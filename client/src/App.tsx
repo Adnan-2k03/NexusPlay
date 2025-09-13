@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Hooks
 import { useAuth } from "@/hooks/useAuth";
@@ -80,9 +80,11 @@ function Router() {
   }
 
   // Auto-redirect authenticated users without gamertag to profile setup
-  if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
-    setCurrentPage("profile-setup");
-  }
+  useEffect(() => {
+    if (isAuthenticated && user && !user.gamertag && currentPage !== "profile-setup") {
+      setCurrentPage("profile-setup");
+    }
+  }, [isAuthenticated, user, currentPage]);
 
   const renderMainContent = () => {
     if (showCreateForm) {

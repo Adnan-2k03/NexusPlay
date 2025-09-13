@@ -16,7 +16,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface GameNavigationProps {
-  currentPage: "home" | "search" | "create" | "profile" | "messages" | "settings";
+  currentPage: "home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup";
   onNavigate: (page: string) => void;
   user?: {
     gamertag: string;
