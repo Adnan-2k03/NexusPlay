@@ -6,6 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useState } from "react";
 
+// Hooks
+import { useAuth } from "@/hooks/useAuth";
+
 // Components
 import { LandingPage } from "@/components/LandingPage";
 import { GameNavigation } from "@/components/GameNavigation";
@@ -15,35 +18,20 @@ import { UserProfile } from "@/components/UserProfile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import NotFound from "@/pages/not-found";
 
-// Mock user data for demo
-const mockUser = {
-  id: "user1",
-  gamertag: "AlexGamer",
-  firstName: "Alex",
-  lastName: "Chen",
-  profileImageUrl: "",
-  bio: "Competitive FPS player looking for ranked teammates. Diamond in Valorant, Global Elite in CS2. Let's climb together!",
-  location: "San Francisco, CA",
-  age: 24,
-  preferredGames: ["Valorant", "CS2", "Apex Legends"],
-};
-
 function Router() {
-  // Mock authentication state for demo
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Real authentication using useAuth hook
+  const { user, isLoading, isAuthenticated } = useAuth();
   const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings">("home");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const handleLogin = () => {
-    // In real app, this would redirect to /api/login
-    setIsAuthenticated(true);
-    console.log("Login triggered - would redirect to /api/login");
+    // Redirect to Replit Auth endpoint
+    window.location.href = '/api/login';
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentPage("home");
-    console.log("Logout triggered - would redirect to /api/logout");
+    // Redirect to logout endpoint
+    window.location.href = '/api/logout';
   };
 
   const handleCreateMatch = () => {
@@ -59,6 +47,18 @@ function Router() {
     setShowCreateForm(false);
     // TODO: Submit to API
   };
+
+  // Show loading while authentication is being checked
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderMainContent = () => {
     if (showCreateForm) {
@@ -80,7 +80,7 @@ function Router() {
               onCreateMatch={handleCreateMatch}
               onAcceptMatch={(id) => console.log("Accept match:", id)}
               onDeclineMatch={(id) => console.log("Decline match:", id)}
-              currentUserId="user1"
+              currentUserId={user?.id || ""}
             />
           </div>
         );
@@ -92,11 +92,27 @@ function Router() {
                 <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
                 <ThemeToggle />
               </div>
-              <UserProfile
-                {...mockUser}
-                isOwn={true}
-                onEdit={() => console.log("Edit profile triggered")}
-              />
+              {user && user.gamertag && (
+                <UserProfile
+                  {...user}
+                  gamertag={user.gamertag}
+                  isOwn={true}
+                  onEdit={() => console.log("Edit profile triggered")}
+                />
+              )}
+              {user && !user.gamertag && (
+                <div className="p-6 bg-card rounded-lg border">
+                  <h3 className="font-semibold mb-2">Complete Your Profile</h3>
+                  <p className="text-sm text-muted-foreground mb-4">You need to set up your gamertag and profile to use the matchmaking system.</p>
+                  <button 
+                    onClick={() => console.log("Setup profile triggered")}
+                    className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+                    data-testid="button-setup-profile"
+                  >
+                    Setup Profile
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -153,7 +169,7 @@ function Router() {
               onCreateMatch={handleCreateMatch}
               onAcceptMatch={(id) => console.log("Accept match:", id)}
               onDeclineMatch={(id) => console.log("Decline match:", id)}
-              currentUserId="user1"
+              currentUserId={user?.id || ""}
             />
           </div>
         );
@@ -169,16 +185,18 @@ function Router() {
           <Route path="/">
             {() => (
               <div className="min-h-screen bg-background">
-                <GameNavigation
-                  currentPage={currentPage}
-                  onNavigate={(page) => {
-                    setCurrentPage(page as any);
-                    setShowCreateForm(false);
-                  }}
-                  user={mockUser}
-                  onLogout={handleLogout}
-                  pendingMessages={3}
-                />
+                {user && user.gamertag && (
+                  <GameNavigation
+                    currentPage={currentPage}
+                    onNavigate={(page) => {
+                      setCurrentPage(page as any);
+                      setShowCreateForm(false);
+                    }}
+                    user={{ ...user, gamertag: user.gamertag }}
+                    onLogout={handleLogout}
+                    pendingMessages={3}
+                  />
+                )}
                 {renderMainContent()}
               </div>
             )}
