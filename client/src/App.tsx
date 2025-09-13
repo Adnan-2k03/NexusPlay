@@ -40,6 +40,19 @@ function mapUserForComponents(user: User) {
 function Router() {
   // Real authentication using useAuth hook
   const { user, isLoading, isAuthenticated } = useAuth();
+  
+  // Show loading while authentication is being checked - MUST come before any other hooks
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup">("home");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -92,18 +105,6 @@ function Router() {
       // TODO: Show error message to user
     }
   };
-
-  // Show loading while authentication is being checked - moved after all hooks
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const renderMainContent = () => {
     if (showCreateForm) {
