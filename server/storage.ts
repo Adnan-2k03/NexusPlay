@@ -5,6 +5,7 @@ import {
   type User,
   type UpsertUser,
   type MatchRequest,
+  type MatchRequestWithUser,
   type InsertMatchRequest,
   type MatchConnection,
   type InsertMatchConnection,
@@ -21,7 +22,7 @@ export interface IStorage {
   updateUserProfile(id: string, profile: Partial<User>): Promise<User>;
   
   // Match request operations
-  getMatchRequests(filters?: { game?: string; mode?: string; region?: string }): Promise<MatchRequest[]>;
+  getMatchRequests(filters?: { game?: string; mode?: string; region?: string }): Promise<MatchRequestWithUser[]>;
   createMatchRequest(request: InsertMatchRequest): Promise<MatchRequest>;
   updateMatchRequestStatus(id: string, status: string): Promise<MatchRequest>;
   deleteMatchRequest(id: string): Promise<void>;
@@ -70,7 +71,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Match request operations
-  async getMatchRequests(filters?: { game?: string; mode?: string; region?: string }): Promise<MatchRequest[]> {
+  async getMatchRequests(filters?: { game?: string; mode?: string; region?: string }): Promise<MatchRequestWithUser[]> {
     const conditions = [];
     
     if (filters?.game) {
@@ -83,17 +84,32 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(matchRequests.region, filters.region));
     }
     
+    // Join with users table to get gamertag and profile data
+    const query = db
+      .select({
+        id: matchRequests.id,
+        userId: matchRequests.userId,
+        gameName: matchRequests.gameName,
+        gameMode: matchRequests.gameMode,
+        tournamentName: matchRequests.tournamentName,
+        description: matchRequests.description,
+        status: matchRequests.status,
+        region: matchRequests.region,
+        createdAt: matchRequests.createdAt,
+        updatedAt: matchRequests.updatedAt,
+        gamertag: users.gamertag,
+        profileImageUrl: users.profileImageUrl,
+      })
+      .from(matchRequests)
+      .leftJoin(users, eq(matchRequests.userId, users.id));
+    
     if (conditions.length > 0) {
-      const requests = await db
-        .select()
-        .from(matchRequests)
+      const requests = await query
         .where(and(...conditions))
         .orderBy(desc(matchRequests.createdAt));
       return requests;
     } else {
-      const requests = await db
-        .select()
-        .from(matchRequests)
+      const requests = await query
         .orderBy(desc(matchRequests.createdAt));
       return requests;
     }

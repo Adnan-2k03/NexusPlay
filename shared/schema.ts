@@ -71,6 +71,12 @@ export type MatchRequest = typeof matchRequests.$inferSelect;
 export type InsertMatchConnection = typeof matchConnections.$inferInsert;
 export type MatchConnection = typeof matchConnections.$inferSelect;
 
+// Enhanced match request type that includes user profile data
+export type MatchRequestWithUser = MatchRequest & {
+  gamertag: string | null;
+  profileImageUrl: string | null;
+};
+
 export const insertUserSchema = createInsertSchema(users);
 export const insertMatchRequestSchema = createInsertSchema(matchRequests).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 export const insertMatchConnectionSchema = createInsertSchema(matchConnections).omit({ id: true, createdAt: true, updatedAt: true });

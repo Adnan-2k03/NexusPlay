@@ -61,10 +61,29 @@ function Router() {
     setShowCreateForm(false);
   };
 
-  const handleSubmitMatch = (data: any) => {
-    console.log("Creating match request:", data);
-    setShowCreateForm(false);
-    // TODO: Submit to API
+  const handleSubmitMatch = async (data: any) => {
+    try {
+      const response = await fetch('/api/match-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create match request');
+      }
+      
+      const newMatch = await response.json();
+      console.log('Match request created successfully:', newMatch);
+      setShowCreateForm(false);
+      
+      // Optionally show success message to user
+    } catch (error) {
+      console.error('Error creating match request:', error);
+      // TODO: Show error message to user
+    }
   };
 
   // Show loading while authentication is being checked

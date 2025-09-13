@@ -3,21 +3,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MatchRequestCard } from "./MatchRequestCard";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { MatchRequestWithUser } from "@shared/schema";
 import { GameFilters } from "./GameFilters";
 import { RefreshCw, Plus, Wifi, WifiOff } from "lucide-react";
 
-interface MatchRequest {
-  id: string;
-  userId: string;
-  gamertag: string;
-  profileImageUrl?: string;
-  gameName: string;
-  gameMode: string;
-  description: string;
-  region?: string;
-  tournamentName?: string;
-  status: "waiting" | "connected" | "declined";
+// Utility function to format time ago
+function formatTimeAgo(date: string | Date | null): string {
+  if (!date) return "Unknown";
+  const now = new Date();
+  const past = new Date(date);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+}
+
+// Extended type for UI display
+interface MatchRequestDisplay extends Omit<MatchRequestWithUser, 'gamertag' | 'profileImageUrl' | 'region' | 'tournamentName'> {
   timeAgo: string;
+  gamertag: string; // Override to ensure non-null for display
+  profileImageUrl?: string; // Use undefined instead of null for UI consistency
+  region?: string; // Use undefined instead of null for UI consistency
+  tournamentName?: string; // Use undefined instead of null for UI consistency
 }
 
 interface MatchFeedProps {
@@ -33,85 +46,49 @@ export function MatchFeed({
   onDeclineMatch,
   currentUserId = "user1"
 }: MatchFeedProps) {
-  const [matches, setMatches] = useState<MatchRequest[]>([]);
+  const queryClient = useQueryClient();
+  const [matches, setMatches] = useState<MatchRequestDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
   const [filters, setFilters] = useState<{ search?: string; game?: string; mode?: string; region?: string }>({});
 
-  // TODO: Replace with real API call
-  const mockMatches: MatchRequest[] = [
-    {
-      id: "1",
-      userId: "user2",
-      gamertag: "AlexGamer",
-      profileImageUrl: "",
-      gameName: "Valorant",
-      gameMode: "5v5",
-      description: "Looking for Diamond+ players for ranked queue. Need good comms!",
-      region: "NA West",
-      status: "waiting",
-      timeAgo: "2 hours ago"
+  // Fetch match requests from API
+  const { data: fetchedMatches = [], isLoading: isFetchingMatches, refetch } = useQuery<MatchRequestWithUser[]>({
+    queryKey: ['/api/match-requests', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.game) params.append('game', filters.game);
+      if (filters.mode) params.append('mode', filters.mode);
+      if (filters.region) params.append('region', filters.region);
+      
+      const response = await fetch(`/api/match-requests?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch match requests');
+      }
+      return response.json();
     },
-    {
-      id: "2",
-      userId: "user3",
-      gamertag: "SamTheSniper",
-      profileImageUrl: "",
-      gameName: "Rocket League",
-      gameMode: "3v3",
-      description: "Casual 3v3 matches, just for fun. All skill levels welcome!",
-      region: "NA Central",
-      status: "waiting",
-      timeAgo: "1 hour ago"
-    },
-    {
-      id: "3",
-      userId: "user4",
-      gamertag: "JordanPro",
-      profileImageUrl: "",
-      gameName: "League of Legends",
-      gameMode: "5v5",
-      description: "Forming team for upcoming tournament. Looking for experienced support and jungle.",
-      region: "NA West",
-      tournamentName: "Spring Tournament",
-      status: "waiting",
-      timeAgo: "45 minutes ago"
-    },
-    {
-      id: "4",
-      userId: "user2",
-      gamertag: "AlexGamer",
-      profileImageUrl: "",
-      gameName: "CS2",
-      gameMode: "5v5",
-      description: "Faceit Level 8+ only. Serious players for competitive matches.",
-      region: "NA West",
-      status: "connected",
-      timeAgo: "30 minutes ago"
-    },
-    {
-      id: "5",
-      userId: "user5",
-      gamertag: "NoobMaster",
-      profileImageUrl: "",
-      gameName: "Apex Legends",
-      gameMode: "3v3",
-      description: "Ranked Arenas, looking for consistent teammates. Currently Platinum.",
-      region: "NA Central",
-      status: "waiting",
-      timeAgo: "15 minutes ago"
-    }
-  ];
+    retry: false,
+  });
 
+  // Transform backend data to display format
+  const transformedMatches: MatchRequestDisplay[] = fetchedMatches
+    .filter(match => match.gamertag) // Only show matches with valid gamertags
+    .map(match => ({
+      ...match,
+      gamertag: match.gamertag || "Unknown Player",
+      profileImageUrl: match.profileImageUrl ?? undefined,
+      region: match.region ?? undefined,
+      tournamentName: match.tournamentName ?? undefined,
+      timeAgo: formatTimeAgo(match.createdAt),
+    }));
+
+  // Update local matches when API data changes
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setMatches(mockMatches);
-      setIsLoading(false);
-    }, 1000);
+    setMatches(transformedMatches);
+    setIsLoading(isFetchingMatches);
+  }, [transformedMatches, isFetchingMatches]);
 
-    return () => clearTimeout(timer);
-  }, []);
+
 
   const filteredMatches = matches.filter(match => {
     if (filters.search) {
@@ -135,12 +112,7 @@ export function MatchFeed({
   });
 
   const handleRefresh = () => {
-    setIsLoading(true);
-    // Simulate refresh
-    setTimeout(() => {
-      setMatches([...mockMatches]);
-      setIsLoading(false);
-    }, 500);
+    refetch();
   };
 
   const LoadingSkeleton = () => (
