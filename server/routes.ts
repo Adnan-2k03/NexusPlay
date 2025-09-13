@@ -323,7 +323,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create a mock request/response object to use the session parser
         const mockReq = { 
           headers: { cookie: cookieHeader },
-          connection: req.socket 
+          connection: req.socket,
+          url: '/ws',
+          method: 'GET'
         } as any;
         const mockRes = {} as any;
 

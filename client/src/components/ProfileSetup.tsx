@@ -20,16 +20,16 @@ interface ProfileSetupProps {
   onCancel?: () => void;
 }
 
-const profileSchema = z.object({
+const formSchema = z.object({
   gamertag: z.string().min(3, "Gamertag must be at least 3 characters").max(20, "Gamertag must be less than 20 characters"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   bio: z.string().max(200, "Bio must be less than 200 characters").optional(),
   location: z.string().optional(),
-  age: z.number().min(13, "Must be at least 13 years old").max(100, "Age must be realistic").optional(),
+  age: z.string().optional().refine((val) => !val || val.trim() === "" || (parseInt(val) >= 13 && parseInt(val) <= 100), "Age must be between 13 and 100"),
 });
 
-type ProfileFormData = z.infer<typeof profileSchema>;
+type FormData = z.infer<typeof formSchema>;
 
 export function ProfileSetup({ user, onComplete, onCancel }: ProfileSetupProps) {
   const [selectedGames, setSelectedGames] = useState<string[]>(user?.preferredGames || []);
@@ -37,21 +37,27 @@ export function ProfileSetup({ user, onComplete, onCancel }: ProfileSetupProps) 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       gamertag: user?.gamertag || "",
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       bio: user?.bio || "",
       location: user?.location || "",
-      age: user?.age || undefined,
+      age: user?.age?.toString() || "",
     },
   });
 
   const profileMutation = useMutation({
-    mutationFn: async (data: ProfileFormData & { preferredGames: string[] }) => {
-      const response = await apiRequest("PATCH", "/api/users/me", data);
+    mutationFn: async (data: FormData & { preferredGames: string[] }) => {
+      // Transform form data for API
+      const apiData = {
+        ...data,
+        age: data.age && data.age.trim() !== "" ? parseInt(data.age) : undefined,
+        preferredGames: data.preferredGames,
+      };
+      const response = await apiRequest("PATCH", "/api/user/profile", apiData);
       return response.json();
     },
     onSuccess: () => {
@@ -94,7 +100,7 @@ export function ProfileSetup({ user, onComplete, onCancel }: ProfileSetupProps) 
     }
   };
 
-  const onSubmit = (data: ProfileFormData) => {
+  const onSubmit = (data: FormData) => {
     profileMutation.mutate({
       ...data,
       preferredGames: selectedGames,
@@ -185,7 +191,7 @@ export function ProfileSetup({ user, onComplete, onCancel }: ProfileSetupProps) 
                           type="number" 
                           placeholder="Your age" 
                           {...field}
-                          onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          onChange={(e) => field.onChange(e.target.value)}
                           data-testid="input-age"
                         />
                       </FormControl>

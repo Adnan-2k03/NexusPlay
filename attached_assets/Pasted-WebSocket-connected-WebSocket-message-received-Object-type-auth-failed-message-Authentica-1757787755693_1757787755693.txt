@@ -1,0 +1,34 @@
+WebSocket connected
+WebSocket message received: 
+Object {type: "auth_failed", message: "Authentication error"}
+WebSocket message received: 
+Object {type: "welcome", message: "Connected to GameMatch real-time updates"}
+Warning: A component is changing an uncontrolled input to be controlled. This is likely caused by the value changing from undefined to a defined value, which should not happen. Decide between using a controlled or uncontrolled input element for the lifetime of the component. More info: https://reactjs.org/link/controlled-components
+    at input
+    at _c (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ui/input.tsx:20:11)
+    at https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5S42QOQO.js?v=039f1a3d:79:13
+    at https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5S42QOQO.js?v=039f1a3d:56:13
+    at https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ui/form.tsx:130:9
+    at div
+    at https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ui/form.tsx:72:6
+    at Controller (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-CXJMC5RA.js?v=039f1a3d:298:35)
+    at FormField (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ui/form.tsx:33:6)
+    at div
+    at form
+    at FormProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-CXJMC5RA.js?v=039f1a3d:102:11)
+    at div
+    at _c9 (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at ProfileSetup (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ProfileSetup.tsx:40:32)
+    at div
+    at div
+    at Route (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=039f1a3d:323:16)
+    at Switch (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=039f1a3d:379:17)
+    at Router (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/App.tsx?v=-_v-HjOxqf72qdCNEPvQZ:49:48)
+    at Provider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BCLB22GG.js?v=039f1a3d:22:15)
+    at TooltipProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=039f1a3d:54:5)
+    at ThemeProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/src/components/ThemeProvider.tsx:25:3)
+    at QueryClientProvider (https://5d8581db-6091-4b07-a537-644d6742062d-00-1u4z1rxfqayck.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=039f1a3d:2805:3)
+    at App
