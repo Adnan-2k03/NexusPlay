@@ -1,0 +1,56 @@
+Project Title: Social Gaming Web App for Real-Time Matchmaking
+
+Project Description:
+Build a web application for gamers to connect, find teammates, and form teams/opponents in real time. The app should have a mobile-first, responsive UI and support both desktop and mobile browsers. Focus on simplicity, clean gaming-inspired theme, and fast performance.
+
+Core Features to Implement:
+Login & Authentication:
+
+Phone number sign up/login using OTP verification.
+
+After login, create/store a unique user profile (Name, DOB/Age, Location, Bio, userID required only if relevant for database logic).
+
+Allow editing profile.
+
+Post Feed & Requests:
+
+Users create match/team requests by posting: game name, mode (1v1, 2v2, 3v3, etc.), tournament name (optional), and a description.
+
+All posts visible in a feed that can be filtered by game, mode, and region.
+
+Matchmaking Workflow:
+
+Users browse the feed and accept requests. Connections only form if both parties accept ("mutual acceptance").
+
+Status indicators for requests: “Waiting”, “Connected”, “Declined”.
+
+User Profiles & Connection:
+
+Users can view others' profiles.
+
+Support basic messaging/chat after connection (can use placeholder if needed).
+
+Live updates – new posts and status changes show instantly.
+
+Preferred Tech Stack:
+Frontend: React.js (with modern UI styling, responsive/mobile-first)
+
+Backend/Data: Firebase (Firestore for real-time database, Firebase Authentication for OTP phone number login)
+
+Hosting: Firebase Hosting, Netlify, or Vercel (whichever is easier in Replit)
+
+Other: Minimal backend/server management, prioritize security, privacy, and real-time features.
+
+Development Requirements:
+Use Firestore real-time listeners for instant updates.
+
+Follow best practices for fast load times & secure authentication.
+
+Keep UI clean, modern, and gaming-themed.
+
+Use functional React components and hooks.
+
+Comment key parts of code for clarity.
+
+"Please scaffold this project on Replit as a React.js app with Firebase integration, implementing the features above. Start with authentication and the post feed. Use Firestore for live feed updates; provide guided steps or TODOs for unfinished features. Ensure the code is modular and beginner-friendly."
+
