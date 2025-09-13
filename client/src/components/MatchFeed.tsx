@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MatchRequestCard } from "./MatchRequestCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MatchRequestWithUser } from "@shared/schema";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { GameFilters } from "./GameFilters";
 import { RefreshCw, Plus, Wifi, WifiOff } from "lucide-react";
 
@@ -49,7 +50,7 @@ export function MatchFeed({
   const queryClient = useQueryClient();
   const [matches, setMatches] = useState<MatchRequestDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(true);
+  const { isConnected, lastMessage } = useWebSocket();
   const [filters, setFilters] = useState<{ search?: string; game?: string; mode?: string; region?: string }>({});
 
   // Fetch match requests from API
@@ -87,6 +88,44 @@ export function MatchFeed({
     setMatches(transformedMatches);
     setIsLoading(isFetchingMatches);
   }, [transformedMatches, isFetchingMatches]);
+
+  // Handle real-time WebSocket updates
+  useEffect(() => {
+    if (!lastMessage) return;
+
+    const { type, data } = lastMessage;
+    
+    switch (type) {
+      case 'match_request_created':
+        // Invalidate and refetch the match requests to include the new one
+        queryClient.invalidateQueries({ queryKey: ['/api/match-requests'] });
+        break;
+      
+      case 'match_request_updated':
+        // Update specific match request in the cache
+        queryClient.setQueryData(['/api/match-requests', filters], (oldData: MatchRequestWithUser[] | undefined) => {
+          if (!oldData || !data) return oldData;
+          
+          return oldData.map(match => 
+            match.id === data.id ? { ...match, ...data } : match
+          );
+        });
+        break;
+      
+      case 'match_request_deleted':
+        // Remove the deleted match request from cache
+        queryClient.setQueryData(['/api/match-requests', filters], (oldData: MatchRequestWithUser[] | undefined) => {
+          if (!oldData || !data?.id) return oldData;
+          
+          return oldData.filter(match => match.id !== data.id);
+        });
+        break;
+      
+      default:
+        // Handle other message types if needed
+        break;
+    }
+  }, [lastMessage, queryClient, filters]);
 
 
 
