@@ -143,7 +143,7 @@ function Router() {
                 <UserProfile
                   {...mapUserForComponents(user)}
                   isOwn={true}
-                  onEdit={() => console.log("Edit profile triggered")}
+                  onEdit={() => setCurrentPage("profile-setup")}
                 />
               )}
               {user && !user.gamertag && (

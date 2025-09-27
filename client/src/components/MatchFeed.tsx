@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,8 +48,6 @@ export function MatchFeed({
   currentUserId = "user1"
 }: MatchFeedProps) {
   const queryClient = useQueryClient();
-  const [matches, setMatches] = useState<MatchRequestDisplay[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const { isConnected, lastMessage } = useWebSocket();
   const [filters, setFilters] = useState<{ search?: string; game?: string; mode?: string; region?: string }>({});
 
@@ -71,23 +69,18 @@ export function MatchFeed({
     retry: false,
   });
 
-  // Transform backend data to display format
-  const transformedMatches: MatchRequestDisplay[] = fetchedMatches
-    .filter(match => match.gamertag) // Only show matches with valid gamertags
-    .map(match => ({
-      ...match,
-      gamertag: match.gamertag || "Unknown Player",
-      profileImageUrl: match.profileImageUrl ?? undefined,
-      region: match.region ?? undefined,
-      tournamentName: match.tournamentName ?? undefined,
-      timeAgo: formatTimeAgo(match.createdAt),
-    }));
-
-  // Update local matches when API data changes
-  useEffect(() => {
-    setMatches(transformedMatches);
-    setIsLoading(isFetchingMatches);
-  }, [transformedMatches, isFetchingMatches]);
+  // Transform backend data to display format (memoized to prevent infinite re-renders)
+  const transformedMatches: MatchRequestDisplay[] = useMemo(() => 
+    fetchedMatches
+      .filter(match => match.gamertag) // Only show matches with valid gamertags
+      .map(match => ({
+        ...match,
+        gamertag: match.gamertag || "Unknown Player",
+        profileImageUrl: match.profileImageUrl ?? undefined,
+        region: match.region ?? undefined,
+        tournamentName: match.tournamentName ?? undefined,
+        timeAgo: formatTimeAgo(match.createdAt),
+      })), [fetchedMatches]);
 
   // Handle real-time WebSocket updates
   useEffect(() => {
@@ -129,7 +122,7 @@ export function MatchFeed({
 
 
 
-  const filteredMatches = matches.filter(match => {
+  const filteredMatches = transformedMatches.filter(match => {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       if (!match.gameName.toLowerCase().includes(searchLower) &&
@@ -209,10 +202,10 @@ export function MatchFeed({
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={isFetchingMatches}
             data-testid="button-refresh-feed"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isFetchingMatches ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             onClick={onCreateMatch}
@@ -234,7 +227,7 @@ export function MatchFeed({
 
       {/* Match Feed */}
       <div className="space-y-4">
-        {isLoading ? (
+        {isFetchingMatches ? (
           <LoadingSkeleton />
         ) : filteredMatches.length === 0 ? (
           <Card>
