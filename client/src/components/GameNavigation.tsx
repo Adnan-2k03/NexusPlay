@@ -36,7 +36,6 @@ export function GameNavigation({
 
   const navigationItems = [
     { id: "home", label: "Feed", icon: Home },
-    { id: "create", label: "Create", icon: Plus },
     { id: "messages", label: "Messages", icon: MessageCircle, /* badge: pendingMessages */ },
     { id: "profile", label: "Profile", icon: User },
   ];
