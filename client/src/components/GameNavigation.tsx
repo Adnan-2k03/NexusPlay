@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Home, 
-  Search, 
   Plus, 
   User, 
   MessageCircle, 
@@ -37,9 +36,8 @@ export function GameNavigation({
 
   const navigationItems = [
     { id: "home", label: "Feed", icon: Home },
-    { id: "search", label: "Search", icon: Search },
     { id: "create", label: "Create", icon: Plus },
-    { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingMessages },
+    { id: "messages", label: "Messages", icon: MessageCircle, /* badge: pendingMessages */ },
     { id: "profile", label: "Profile", icon: User },
   ];
 
