@@ -185,7 +185,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 border-t border-border">
         <div className="text-center text-muted-foreground text-sm">
-          <p>&copy; 2024 GameMatch. Built for the gaming community.</p>
+          <p>&copy; 2025 GameMatch. Built for the gaming community.</p>
         </div>
       </footer>
     </div>
