@@ -9,13 +9,14 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Users
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface GameNavigationProps {
-  currentPage: "home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup";
+  currentPage: "home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup" | "connections";
   onNavigate: (page: string) => void;
   user?: {
     gamertag: string;
@@ -36,7 +37,8 @@ export function GameNavigation({
 
   const navigationItems = [
     { id: "home", label: "Feed", icon: Home },
-    { id: "messages", label: "Messages", icon: MessageCircle, /* badge: pendingMessages */ },
+    { id: "connections", label: "Connections", icon: Users },
+    { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingMessages },
     { id: "profile", label: "Profile", icon: User },
   ];
 

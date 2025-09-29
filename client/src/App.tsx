@@ -17,6 +17,7 @@ import { CreateMatchForm } from "@/components/CreateMatchForm";
 import { UserProfile } from "@/components/UserProfile";
 import { ProfileSetup } from "@/components/ProfileSetup";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Connections } from "@/components/Connections";
 import NotFound from "@/pages/not-found";
 
 // Types
@@ -42,7 +43,7 @@ function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
   
   // ALL hooks must be called before any early returns
-  const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup">("home");
+  const [currentPage, setCurrentPage] = useState<"home" | "search" | "create" | "profile" | "messages" | "settings" | "profile-setup" | "connections">("home");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Auto-redirect authenticated users without gamertag to profile setup
@@ -107,6 +108,75 @@ function Router() {
     }
   };
 
+  const handleAcceptMatch = async (matchId: string) => {
+    try {
+      // First, get the match request details to find the accepter (owner)
+      const matchResponse = await fetch('/api/match-requests');
+      if (!matchResponse.ok) {
+        throw new Error('Failed to fetch match requests');
+      }
+      
+      const matches = await matchResponse.json();
+      const targetMatch = matches.find((m: any) => m.id === matchId);
+      
+      if (!targetMatch) {
+        throw new Error('Match request not found');
+      }
+
+      // Create a match connection between current user (requester) and match owner (accepter)
+      const response = await fetch('/api/match-connections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: matchId,
+          accepterId: targetMatch.userId, // Owner of the match request
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to accept match request');
+      }
+
+      const connection = await response.json();
+      console.log('Match request accepted successfully:', connection);
+      
+      // The WebSocket will handle real-time updates
+    } catch (error) {
+      console.error('Error accepting match request:', error);
+      // TODO: Show error message to user
+    }
+  };
+
+  const handleDeclineMatch = async (matchId: string) => {
+    try {
+      const response = await fetch(`/api/match-requests/${matchId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'declined'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to decline match request');
+      }
+
+      const updatedMatch = await response.json();
+      console.log('Match request declined successfully:', updatedMatch);
+      
+      // The WebSocket will handle real-time updates
+    } catch (error) {
+      console.error('Error declining match request:', error);
+      // TODO: Show error message to user
+    }
+  };
+
   const renderMainContent = () => {
     if (showCreateForm) {
       return (
@@ -125,8 +195,8 @@ function Router() {
           <div className="md:ml-20 pt-16 md:pt-6 pb-16 md:pb-6 px-4">
             <MatchFeed
               onCreateMatch={handleCreateMatch}
-              onAcceptMatch={(id) => console.log("Accept match:", id)}
-              onDeclineMatch={(id) => console.log("Decline match:", id)}
+              onAcceptMatch={handleAcceptMatch}
+              onDeclineMatch={handleDeclineMatch}
               currentUserId={user?.id || ""}
             />
           </div>
@@ -160,6 +230,12 @@ function Router() {
                 </div>
               )}
             </div>
+          </div>
+        );
+      case "connections":
+        return (
+          <div className="md:ml-20 pt-16 md:pt-6 pb-16 md:pb-6 px-4">
+            <Connections currentUserId={user?.id || ""} />
           </div>
         );
       case "search":
@@ -228,8 +304,8 @@ function Router() {
           <div className="md:ml-20 pt-16 md:pt-6 pb-16 md:pb-6 px-4">
             <MatchFeed
               onCreateMatch={handleCreateMatch}
-              onAcceptMatch={(id) => console.log("Accept match:", id)}
-              onDeclineMatch={(id) => console.log("Decline match:", id)}
+              onAcceptMatch={handleAcceptMatch}
+              onDeclineMatch={handleDeclineMatch}
               currentUserId={user?.id || ""}
             />
           </div>

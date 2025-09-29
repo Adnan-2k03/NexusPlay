@@ -184,6 +184,13 @@ export const storage = new DatabaseStorage();
 // TODO: Remove mock data when implementing real backend
 if (process.env.NODE_ENV === 'development') {
   const seedData = async () => {
+    // Check if we already have match requests to avoid duplicating seed data
+    const existingRequests = await storage.getMatchRequests();
+    if (existingRequests.length > 0) {
+      console.log('Seed data already exists, skipping initialization');
+      return;
+    }
+
     // Create sample users
     const users = [
       {
