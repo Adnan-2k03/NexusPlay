@@ -152,27 +152,28 @@ function Router() {
 
   const handleDeclineMatch = async (matchId: string) => {
     try {
-      const response = await fetch(`/api/match-requests/${matchId}/status`, {
-        method: 'PATCH',
+      const response = await fetch('/api/hidden-matches', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          status: 'declined'
+          matchRequestId: matchId
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to decline match request');
+        throw new Error(errorData.message || 'Failed to hide match request');
       }
 
-      const updatedMatch = await response.json();
-      console.log('Match request declined successfully:', updatedMatch);
+      console.log('Match request hidden successfully');
       
-      // The WebSocket will handle real-time updates
+      // Refresh hidden matches list and match feed
+      queryClient.invalidateQueries({ queryKey: ['/api/hidden-matches'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/match-requests'] });
     } catch (error) {
-      console.error('Error declining match request:', error);
+      console.error('Error hiding match request:', error);
       // TODO: Show error message to user
     }
   };

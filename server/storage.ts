@@ -2,6 +2,8 @@ import {
   users,
   matchRequests,
   matchConnections,
+  hiddenMatches,
+  chatMessages,
   type User,
   type UpsertUser,
   type MatchRequest,
@@ -9,6 +11,11 @@ import {
   type InsertMatchRequest,
   type MatchConnection,
   type InsertMatchConnection,
+  type HiddenMatch,
+  type InsertHiddenMatch,
+  type ChatMessage,
+  type ChatMessageWithSender,
+  type InsertChatMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, ilike, desc } from "drizzle-orm";
@@ -31,6 +38,16 @@ export interface IStorage {
   createMatchConnection(connection: InsertMatchConnection): Promise<MatchConnection>;
   updateMatchConnectionStatus(id: string, status: string): Promise<MatchConnection>;
   getUserConnections(userId: string): Promise<MatchConnection[]>;
+  
+  // Hidden matches operations
+  hideMatchRequest(userId: string, matchRequestId: string): Promise<HiddenMatch>;
+  unhideMatchRequest(userId: string, matchRequestId: string): Promise<void>;
+  getHiddenMatchIds(userId: string): Promise<string[]>;
+  
+  // Chat message operations
+  sendMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getMessages(connectionId: string): Promise<ChatMessageWithSender[]>;
+  getRecentMessages(userId: string): Promise<ChatMessageWithSender[]>;
 }
 
 // Database storage implementation using PostgreSQL
@@ -175,6 +192,93 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(matchConnections.createdAt));
     
     return connections;
+  }
+
+  // Hidden matches operations
+  async hideMatchRequest(userId: string, matchRequestId: string): Promise<HiddenMatch> {
+    const [hidden] = await db
+      .insert(hiddenMatches)
+      .values({ userId, matchRequestId })
+      .onConflictDoNothing()
+      .returning();
+    return hidden;
+  }
+
+  async unhideMatchRequest(userId: string, matchRequestId: string): Promise<void> {
+    await db
+      .delete(hiddenMatches)
+      .where(and(
+        eq(hiddenMatches.userId, userId),
+        eq(hiddenMatches.matchRequestId, matchRequestId)
+      ));
+  }
+
+  async getHiddenMatchIds(userId: string): Promise<string[]> {
+    const hidden = await db
+      .select({ matchRequestId: hiddenMatches.matchRequestId })
+      .from(hiddenMatches)
+      .where(eq(hiddenMatches.userId, userId));
+    
+    return hidden.map(h => h.matchRequestId);
+  }
+
+  // Chat message operations
+  async sendMessage(messageData: InsertChatMessage): Promise<ChatMessage> {
+    const [message] = await db
+      .insert(chatMessages)
+      .values(messageData)
+      .returning();
+    return message;
+  }
+
+  async getMessages(connectionId: string): Promise<ChatMessageWithSender[]> {
+    const messages = await db
+      .select({
+        id: chatMessages.id,
+        connectionId: chatMessages.connectionId,
+        senderId: chatMessages.senderId,
+        receiverId: chatMessages.receiverId,
+        message: chatMessages.message,
+        createdAt: chatMessages.createdAt,
+        senderGamertag: users.gamertag,
+        senderProfileImageUrl: users.profileImageUrl,
+      })
+      .from(chatMessages)
+      .leftJoin(users, eq(chatMessages.senderId, users.id))
+      .where(eq(chatMessages.connectionId, connectionId))
+      .orderBy(chatMessages.createdAt);
+    
+    return messages;
+  }
+
+  async getRecentMessages(userId: string): Promise<ChatMessageWithSender[]> {
+    // Get all connections where user is participant
+    const userConnections = await this.getUserConnections(userId);
+    const connectionIds = userConnections.map(c => c.id);
+    
+    if (connectionIds.length === 0) {
+      return [];
+    }
+    
+    // Get messages from all connections
+    const messages = await db
+      .select({
+        id: chatMessages.id,
+        connectionId: chatMessages.connectionId,
+        senderId: chatMessages.senderId,
+        receiverId: chatMessages.receiverId,
+        message: chatMessages.message,
+        createdAt: chatMessages.createdAt,
+        senderGamertag: users.gamertag,
+        senderProfileImageUrl: users.profileImageUrl,
+      })
+      .from(chatMessages)
+      .leftJoin(users, eq(chatMessages.senderId, users.id))
+      .where(or(...connectionIds.map(id => eq(chatMessages.connectionId, id))))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(50);
+    
+    return messages;
   }
 }
 

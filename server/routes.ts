@@ -252,6 +252,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Hidden matches routes
+  app.get('/api/hidden-matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const hiddenIds = await storage.getHiddenMatchIds(userId);
+      res.json(hiddenIds);
+    } catch (error) {
+      console.error("Error fetching hidden matches:", error);
+      res.status(500).json({ message: "Failed to fetch hidden matches" });
+    }
+  });
+
+  app.post('/api/hidden-matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { matchRequestId } = req.body;
+      
+      if (!matchRequestId) {
+        return res.status(400).json({ message: "matchRequestId is required" });
+      }
+      
+      const hidden = await storage.hideMatchRequest(userId, matchRequestId);
+      res.status(201).json(hidden);
+    } catch (error) {
+      console.error("Error hiding match request:", error);
+      res.status(500).json({ message: "Failed to hide match request" });
+    }
+  });
+
+  app.delete('/api/hidden-matches/:matchRequestId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { matchRequestId } = req.params;
+      
+      await storage.unhideMatchRequest(userId, matchRequestId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error unhiding match request:", error);
+      res.status(500).json({ message: "Failed to unhide match request" });
+    }
+  });
+
+  // Chat message routes
+  app.get('/api/messages/:connectionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { connectionId } = req.params;
+      
+      // Verify user is part of this connection
+      const userConnections = await storage.getUserConnections(userId);
+      const hasAccess = userConnections.some(c => c.id === connectionId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "You don't have access to this conversation" });
+      }
+      
+      const messages = await storage.getMessages(connectionId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post('/api/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const senderId = req.user.claims.sub;
+      const { connectionId, receiverId, message } = req.body;
+      
+      if (!connectionId || !receiverId || !message) {
+        return res.status(400).json({ message: "connectionId, receiverId, and message are required" });
+      }
+      
+      // Verify user is part of this connection
+      const userConnections = await storage.getUserConnections(senderId);
+      const connection = userConnections.find(c => c.id === connectionId);
+      
+      if (!connection) {
+        return res.status(403).json({ message: "You don't have access to this conversation" });
+      }
+      
+      // Verify receiverId is the other participant
+      const validReceiver = connection.requesterId === receiverId || connection.accepterId === receiverId;
+      if (!validReceiver) {
+        return res.status(400).json({ message: "Invalid receiverId for this connection" });
+      }
+      
+      const newMessage = await storage.sendMessage({
+        connectionId,
+        senderId,
+        receiverId,
+        message,
+      });
+      
+      // Broadcast message to receiver via WebSocket
+      (app as any).broadcast?.toUsers([receiverId], {
+        type: 'new_message',
+        data: newMessage,
+        message: 'New message received'
+      });
+      
+      res.status(201).json(newMessage);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Set up WebSocket server for real-time match updates
