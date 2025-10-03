@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MatchRequestWithUser } from "@shared/schema";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { GameFilters } from "./GameFilters";
-import { RefreshCw, Plus, Wifi, WifiOff } from "lucide-react";
+import { RefreshCw, Plus, Wifi, WifiOff, EyeOff, Eye } from "lucide-react";
 
 // Utility function to format time ago
 function formatTimeAgo(date: string | Date | null): string {
@@ -50,6 +50,7 @@ export function MatchFeed({
   const queryClient = useQueryClient();
   const { isConnected, lastMessage } = useWebSocket();
   const [filters, setFilters] = useState<{ search?: string; game?: string; mode?: string; region?: string }>({});
+  const [showHidden, setShowHidden] = useState(false);
 
   // Fetch match requests from API
   const { data: fetchedMatches = [], isLoading: isFetchingMatches, refetch } = useQuery<MatchRequestWithUser[]>({
@@ -63,6 +64,23 @@ export function MatchFeed({
       const response = await fetch(`/api/match-requests?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch match requests');
+      }
+      return response.json();
+    },
+    retry: false,
+  });
+
+  // Fetch hidden match IDs
+  const { data: hiddenMatchIds = [] } = useQuery<string[]>({
+    queryKey: ['/api/hidden-matches'],
+    queryFn: async () => {
+      const response = await fetch('/api/hidden-matches');
+      if (!response.ok) {
+        if (response.status === 401) {
+          // User not authenticated, return empty array
+          return [];
+        }
+        throw new Error('Failed to fetch hidden matches');
       }
       return response.json();
     },
@@ -123,6 +141,14 @@ export function MatchFeed({
 
 
   const filteredMatches = transformedMatches.filter(match => {
+    // Filter by hidden status
+    if (!showHidden && hiddenMatchIds.includes(match.id)) {
+      return false;
+    }
+    if (showHidden && !hiddenMatchIds.includes(match.id)) {
+      return false;
+    }
+    
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       if (!match.gameName.toLowerCase().includes(searchLower) &&
@@ -198,6 +224,15 @@ export function MatchFeed({
         </div>
         
         <div className="flex gap-2">
+          <Button
+            variant={showHidden ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowHidden(!showHidden)}
+            data-testid="button-toggle-hidden"
+          >
+            {showHidden ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+            {showHidden ? "Show All" : "Hidden"}
+          </Button>
           <Button
             variant="outline"
             size="sm"
