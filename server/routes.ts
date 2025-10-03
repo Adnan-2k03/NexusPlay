@@ -239,6 +239,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User profile routes
+  app.get('/api/users/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
   app.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -501,9 +517,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const data = JSON.parse(message.toString());
         console.log(`WebSocket message from ${clientId}:`, data);
         
-        // Note: No longer accepting client-provided auth - security fix
+        const client = connectedClients.get(clientId);
+        
         if (data.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }));
+        } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate') {
+          // WebRTC signaling - forward to target user with authorization
+          if (!client?.userId) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Authentication required for WebRTC signaling' 
+            }));
+            return;
+          }
+          
+          const { targetUserId, connectionId, offer, answer, candidate } = data;
+          
+          if (!targetUserId || !connectionId) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Target user ID and connection ID required for WebRTC signaling' 
+            }));
+            return;
+          }
+          
+          // Verify that both sender and target are participants in this connection
+          try {
+            const userConnections = await storage.getUserConnections(client.userId);
+            const connection = userConnections.find(c => c.id === connectionId);
+            
+            if (!connection) {
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Connection not found or you are not authorized' 
+              }));
+              return;
+            }
+            
+            // Verify target is the other participant
+            const isValidTarget = 
+              (connection.requesterId === client.userId && connection.accepterId === targetUserId) ||
+              (connection.accepterId === client.userId && connection.requesterId === targetUserId);
+            
+            if (!isValidTarget) {
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Target user is not a participant in this connection' 
+              }));
+              return;
+            }
+            
+            // Connection must be accepted for voice
+            if (connection.status !== 'accepted') {
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Connection must be accepted before initiating voice chat' 
+              }));
+              return;
+            }
+            
+            // Authorization passed - forward the signaling message to the target user
+            connectedClients.forEach((targetClient) => {
+              if (targetClient.userId === targetUserId && targetClient.ws.readyState === WebSocket.OPEN) {
+                targetClient.ws.send(JSON.stringify({
+                  type: data.type,
+                  data: {
+                    connectionId,
+                    offer,
+                    answer,
+                    candidate,
+                    fromUserId: client.userId
+                  }
+                }));
+              }
+            });
+          } catch (error) {
+            console.error('Error verifying WebRTC authorization:', error);
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Failed to verify authorization' 
+            }));
+          }
         }
       } catch (error) {
         console.error('Error handling WebSocket message:', error);

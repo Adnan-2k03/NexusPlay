@@ -18,6 +18,7 @@ import { UserProfile } from "@/components/UserProfile";
 import { ProfileSetup } from "@/components/ProfileSetup";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Connections } from "@/components/Connections";
+import { Messages } from "@/components/Messages";
 import NotFound from "@/pages/not-found";
 
 // Types
@@ -254,13 +255,7 @@ function Router() {
       case "messages":
         return (
           <div className="md:ml-20 pt-16 md:pt-6 pb-16 md:pb-6 px-4">
-            <div className="max-w-2xl mx-auto">
-              <h1 className="text-2xl font-bold text-foreground mb-6">Messages</h1>
-              <div className="text-center text-muted-foreground py-12">
-                <p>Messaging system coming soon!</p>
-                <p className="text-sm mt-2">Chat with your matched teammates</p>
-              </div>
-            </div>
+            <Messages currentUserId={user?.id || ""} />
           </div>
         );
       case "settings":

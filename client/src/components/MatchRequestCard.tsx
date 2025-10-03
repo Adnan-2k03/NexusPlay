@@ -2,10 +2,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Clock, MapPin, Users, Trophy } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Clock, MapPin, Users, Trophy, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { UserProfile } from "./UserProfile";
+import type { User } from "@shared/schema";
 
 interface MatchRequestCardProps {
   id: string;
+  userId: string;
   gamertag: string;
   profileImageUrl?: string;
   gameName: string;
@@ -22,6 +28,7 @@ interface MatchRequestCardProps {
 
 export function MatchRequestCard({
   id,
+  userId,
   gamertag,
   profileImageUrl,
   gameName,
@@ -35,6 +42,21 @@ export function MatchRequestCard({
   onDecline,
   isOwn = false,
 }: MatchRequestCardProps) {
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<User>({
+    queryKey: ['/api/users', userId],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+      return response.json();
+    },
+    enabled: profileOpen,
+    retry: false,
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "connected":
@@ -65,26 +87,59 @@ export function MatchRequestCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={profileImageUrl} alt={gamertag} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                {gamertag.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-semibold text-sm text-foreground" data-testid={`text-gamertag-${id}`}>
-                {gamertag}
-              </h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className="text-xs font-medium">
-                  {gameName}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  <Users className="w-3 h-3 mr-1" />
-                  {gameMode}
-                </Badge>
-              </div>
-            </div>
+            <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-3 hover:opacity-80 transition-opacity" data-testid={`button-view-profile-${id}`}>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={profileImageUrl} alt={gamertag} />
+                    <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                      {gamertag.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-sm text-foreground hover:text-primary cursor-pointer" data-testid={`text-gamertag-${id}`}>
+                      {gamertag}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="secondary" className="text-xs font-medium">
+                        {gameName}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        <Users className="w-3 h-3 mr-1" />
+                        {gameMode}
+                      </Badge>
+                    </div>
+                  </div>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Player Profile</DialogTitle>
+                </DialogHeader>
+                {isLoadingProfile ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : userProfile ? (
+                  <UserProfile
+                    id={userProfile.id}
+                    gamertag={userProfile.gamertag || "Unknown"}
+                    firstName={userProfile.firstName ?? undefined}
+                    lastName={userProfile.lastName ?? undefined}
+                    profileImageUrl={userProfile.profileImageUrl ?? undefined}
+                    bio={userProfile.bio ?? undefined}
+                    location={userProfile.location ?? undefined}
+                    age={userProfile.age ?? undefined}
+                    preferredGames={userProfile.preferredGames ?? undefined}
+                    isOwn={false}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Profile not found
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
           <Badge 
             className={`text-xs font-medium ${getStatusColor(status)}`}

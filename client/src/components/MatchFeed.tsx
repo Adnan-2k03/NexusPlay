@@ -285,7 +285,17 @@ export function MatchFeed({
           filteredMatches.map((match) => (
             <MatchRequestCard
               key={match.id}
-              {...match}
+              id={match.id}
+              userId={match.userId}
+              gamertag={match.gamertag}
+              profileImageUrl={match.profileImageUrl}
+              gameName={match.gameName}
+              gameMode={match.gameMode}
+              description={match.description}
+              region={match.region}
+              tournamentName={match.tournamentName}
+              status={match.status}
+              timeAgo={match.timeAgo}
               isOwn={match.userId === currentUserId}
               onAccept={() => onAcceptMatch(match.id)}
               onDecline={() => onDeclineMatch(match.id)}

@@ -5,12 +5,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { MessageCircle, Calendar, Users, Trophy } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MessageCircle, Calendar, Users, Trophy, Phone } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useEffect, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
 import type { MatchConnection } from "@shared/schema";
 import { Chat } from "./Chat";
+import { VoiceChannel } from "./VoiceChannel";
 
 interface ConnectionsProps {
   currentUserId?: string;
@@ -196,30 +198,53 @@ export function Connections({ currentUserId }: ConnectionsProps) {
                   {connection.status === 'accepted' && (
                     <Dialog open={openChatId === connection.id} onOpenChange={(open) => setOpenChatId(open ? connection.id : null)}>
                       <DialogTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="gap-1 text-primary hover:text-primary"
-                          data-testid={`button-chat-${connection.id}`}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          <span className="text-xs">Chat</span>
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="gap-1 text-primary hover:text-primary"
+                            data-testid={`button-open-connection-${connection.id}`}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            <Phone className="h-4 w-4" />
+                            <span className="text-xs">Chat & Voice</span>
+                          </Button>
+                        </div>
                       </DialogTrigger>
                       <DialogContent className="max-w-lg h-[600px] flex flex-col p-0">
                         <DialogHeader className="p-4 pb-3 border-b">
                           <DialogTitle>
-                            Chat with {isRequester ? `Accepter ${connection.accepterId}` : `Requester ${connection.requesterId}`}
+                            Connect with {isRequester ? connection.accepterId : connection.requesterId}
                           </DialogTitle>
                         </DialogHeader>
-                        <div className="flex-1 overflow-hidden">
-                          <Chat
-                            connectionId={connection.id}
-                            currentUserId={currentUserId || ""}
-                            otherUserId={isRequester ? connection.accepterId : connection.requesterId}
-                            otherUserName={isRequester ? connection.accepterId : connection.requesterId}
-                          />
-                        </div>
+                        <Tabs defaultValue="chat" className="flex-1 flex flex-col overflow-hidden">
+                          <TabsList className="mx-4 mt-2">
+                            <TabsTrigger value="chat" className="flex-1" data-testid="tab-chat">
+                              <MessageCircle className="h-4 w-4 mr-1" />
+                              Chat
+                            </TabsTrigger>
+                            <TabsTrigger value="voice" className="flex-1" data-testid="tab-voice">
+                              <Phone className="h-4 w-4 mr-1" />
+                              Voice
+                            </TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="chat" className="flex-1 overflow-hidden m-0">
+                            <Chat
+                              connectionId={connection.id}
+                              currentUserId={currentUserId || ""}
+                              otherUserId={isRequester ? connection.accepterId : connection.requesterId}
+                              otherUserName={isRequester ? connection.accepterId : connection.requesterId}
+                            />
+                          </TabsContent>
+                          <TabsContent value="voice" className="p-4">
+                            <VoiceChannel
+                              connectionId={connection.id}
+                              currentUserId={currentUserId || ""}
+                              otherUserId={isRequester ? connection.accepterId : connection.requesterId}
+                              otherUserName={isRequester ? connection.accepterId : connection.requesterId}
+                            />
+                          </TabsContent>
+                        </Tabs>
                       </DialogContent>
                     </Dialog>
                   )}
