@@ -3,11 +3,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MessageCircle, Calendar, Users, Trophy } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
 import type { MatchConnection } from "@shared/schema";
+import { Chat } from "./Chat";
 
 interface ConnectionsProps {
   currentUserId?: string;
@@ -30,6 +33,7 @@ function formatTimeAgo(date: string | Date | null): string {
 
 export function Connections({ currentUserId }: ConnectionsProps) {
   const { lastMessage } = useWebSocket();
+  const [openChatId, setOpenChatId] = useState<string | null>(null);
 
   const { data: connections = [], isLoading, refetch } = useQuery<MatchConnection[]>({
     queryKey: ['/api/user/connections'],
@@ -190,10 +194,34 @@ export function Connections({ currentUserId }: ConnectionsProps) {
                     </div>
                   </div>
                   {connection.status === 'accepted' && (
-                    <div className="flex items-center gap-1 text-primary">
-                      <MessageCircle className="h-3 w-3" />
-                      <span className="text-xs">Ready to play</span>
-                    </div>
+                    <Dialog open={openChatId === connection.id} onOpenChange={(open) => setOpenChatId(open ? connection.id : null)}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="gap-1 text-primary hover:text-primary"
+                          data-testid={`button-chat-${connection.id}`}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          <span className="text-xs">Chat</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-lg h-[600px] flex flex-col p-0">
+                        <DialogHeader className="p-4 pb-3 border-b">
+                          <DialogTitle>
+                            Chat with {isRequester ? `Accepter ${connection.accepterId}` : `Requester ${connection.requesterId}`}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="flex-1 overflow-hidden">
+                          <Chat
+                            connectionId={connection.id}
+                            currentUserId={currentUserId || ""}
+                            otherUserId={isRequester ? connection.accepterId : connection.requesterId}
+                            otherUserName={isRequester ? connection.accepterId : connection.requesterId}
+                          />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   )}
                 </div>
               </CardContent>
