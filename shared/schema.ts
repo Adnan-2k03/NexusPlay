@@ -68,12 +68,36 @@ export const matchConnections = pgTable("match_connections", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Hidden matches table - tracks which users have hidden which match requests
+export const hiddenMatches = pgTable("hidden_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  matchRequestId: varchar("match_request_id").notNull().references(() => matchRequests.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_user_hidden_matches").on(table.userId),
+]);
+
+// Chat messages table - stores messages between matched players
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  connectionId: varchar("connection_id").notNull().references(() => matchConnections.id),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  receiverId: varchar("receiver_id").notNull().references(() => users.id),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type InsertMatchRequest = typeof matchRequests.$inferInsert;
 export type MatchRequest = typeof matchRequests.$inferSelect;
 export type InsertMatchConnection = typeof matchConnections.$inferInsert;
 export type MatchConnection = typeof matchConnections.$inferSelect;
+export type InsertHiddenMatch = typeof hiddenMatches.$inferInsert;
+export type HiddenMatch = typeof hiddenMatches.$inferSelect;
+export type InsertChatMessage = typeof chatMessages.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
 
 // Enhanced match request type that includes user profile data
 export type MatchRequestWithUser = MatchRequest & {
@@ -81,6 +105,14 @@ export type MatchRequestWithUser = MatchRequest & {
   profileImageUrl: string | null;
 };
 
+// Chat message with sender information
+export type ChatMessageWithSender = ChatMessage & {
+  senderGamertag: string | null;
+  senderProfileImageUrl: string | null;
+};
+
 export const insertUserSchema = createInsertSchema(users);
 export const insertMatchRequestSchema = createInsertSchema(matchRequests).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
 export const insertMatchConnectionSchema = createInsertSchema(matchConnections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertHiddenMatchSchema = createInsertSchema(hiddenMatches).omit({ id: true, createdAt: true });
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
